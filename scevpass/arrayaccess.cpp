@@ -1,5 +1,6 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/DataLayout.h"
 #include "llvm/Passes/PassBuilder.h"
 #include "llvm/Passes/PassPlugin.h"
 #include "llvm/IR/PassManager.h"
@@ -7,6 +8,8 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/Module.h"
+
 
 using namespace llvm;
 
@@ -18,6 +21,7 @@ struct ArrayAccessPass : public PassInfoMixin<ArrayAccessPass> {
 
     auto &LI = FAM.getResult<LoopAnalysis>(F);
     auto &SE = FAM.getResult<ScalarEvolutionAnalysis>(F);
+    const DataLayout &DL = F.getParent()->getDataLayout();
 
     for (Loop *L : LI) {
       errs() << "Loop detected.\n";
@@ -26,12 +30,9 @@ struct ArrayAccessPass : public PassInfoMixin<ArrayAccessPass> {
           if (auto *GEP = dyn_cast<GetElementPtrInst>(&I)) {
             errs() << "  Found GEP: " << *GEP << "\n";
 
-            // Get the SCEV expression for the pointer operand
             const SCEV *S = SE.getSCEV(GEP);
-
             errs() << "    SCEV: " << *S << "\n";
 
-            // Check if it is an AddRecExpr (i.e., a recurrence across the loop)
             if (auto *AR = dyn_cast<SCEVAddRecExpr>(S)) {
               if (AR->getLoop() == L) {
                 errs() << "    GEP varies across loop: yes\n";
@@ -39,10 +40,23 @@ struct ArrayAccessPass : public PassInfoMixin<ArrayAccessPass> {
 
                 if (auto *ConstStep = dyn_cast<SCEVConstant>(AR->getStepRecurrence(SE))) {
                   auto stride = ConstStep->getValue()->getSExtValue();
-                  if (stride == 1) {
-                    errs() << "    Access is continuous (stride 1).\n";
+                  Type *ElementType = GEP->getSourceElementType();
+                  uint64_t ElementSize = DL.getTypeAllocSize(ElementType);
+
+                  errs() << "    Raw stride (bytes): " << stride << "\n";
+                  errs() << "    Element size: " << ElementSize << " bytes\n";
+
+                  if (ElementSize != 0 && stride % ElementSize == 0) {
+                    auto logicalStride = stride / ElementSize;
+                    errs() << "    Logical stride (elements): " << logicalStride << "\n";
+
+                    if (logicalStride == 1) {
+                      errs() << "    Access is logically continuous (1 element per iteration).\n";
+                    } else {
+                      errs() << "    Access is strided — " << logicalStride << " elements per iteration.\n";
+                    }
                   } else {
-                    errs() << "    Access has stride " << stride << " — not continuous.\n";
+                    errs() << "    Stride is not a multiple of element size — can't determine logical continuity.\n";
                   }
                 } else {
                   errs() << "    Stride is not a constant — can't guarantee continuity.\n";
@@ -85,4 +99,3 @@ extern "C" LLVM_ATTRIBUTE_WEAK PassPluginLibraryInfo llvmGetPassPluginInfo() {
     }
   };
 }
-  
