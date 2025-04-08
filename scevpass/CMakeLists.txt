@@ -15,5 +15,5 @@ include_directories(${LLVM_INCLUDE_DIRS})
 
 
 add_llvm_pass_plugin(SCEVArrayAccess
-  arrayaccess.cpp
+  src/arrayaccess.cpp
 )
