@@ -141,3 +141,50 @@ Loop detected.
   Found GEP:   %9 = getelementptr inbounds i32, ptr %0, i64 %8
     SCEV: ((12 * (zext i32 %.0 to i64))<nuw><nsw> + (-4 * (zext i1 (trunc i32 %.0 to i1) to i64))<nuw><nsw> + %0)
     GEP is not a loop-varying recurrence — not continuous.
+
+================================================================================
+===> Processing File: test.opt.ll
+================================================================================
+
+Running ArrayAccessPass on function: foo
+Loop detected.
+  Found GEP:   %7 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
+    SCEV: {%0,+,12}<nw><%4>
+    GEP varies across loop: yes
+    Step recurrence: 12
+    Raw stride (bytes): 12
+    Element size: 4 bytes
+    Logical stride (elements): 3
+    Access is strided — 3 elements per iteration.
+  Found GEP:   %10 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
+    SCEV: {%0,+,12}<nw><%4>
+    GEP varies across loop: yes
+    Step recurrence: 12
+    Raw stride (bytes): 12
+    Element size: 4 bytes
+    Logical stride (elements): 3
+    Access is strided — 3 elements per iteration.
+  Found GEP:   %11 = getelementptr inbounds i8, ptr %10, i64 4
+    SCEV: {(4 + %0),+,12}<nw><%4>
+    GEP varies across loop: yes
+    Step recurrence: 12
+    Raw stride (bytes): 12
+    Element size: 1 bytes
+    Logical stride (elements): 12
+    Access is strided — 12 elements per iteration.
+  Found GEP:   %14 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
+    SCEV: {%0,+,12}<nw><%4>
+    GEP varies across loop: yes
+    Step recurrence: 12
+    Raw stride (bytes): 12
+    Element size: 4 bytes
+    Logical stride (elements): 3
+    Access is strided — 3 elements per iteration.
+  Found GEP:   %15 = getelementptr inbounds i8, ptr %14, i64 8
+    SCEV: {(8 + %0),+,12}<nw><%4>
+    GEP varies across loop: yes
+    Step recurrence: 12
+    Raw stride (bytes): 12
+    Element size: 1 bytes
+    Logical stride (elements): 12
+    Access is strided — 12 elements per iteration.
