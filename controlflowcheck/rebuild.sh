@@ -1,8 +1,20 @@
 #!/bin/bash
 set -e
 BUILD_DIR="build"
-rm -rf "$BUILD_DIR"
-mkdir "$BUILD_DIR"
-cd "$BUILD_DIR"
-cmake -G Ninja -DLLVM_DIR=/usr/lib/llvm-19/lib/cmake/llvm ..
+
+if [[ "$1" == "clean" ]]; then
+    echo "Performing clean rebuild..."
+    rm -rf "$BUILD_DIR"
+    mkdir "$BUILD_DIR"
+    cd "$BUILD_DIR"
+    cmake -G Ninja -DLLVM_DIR=/usr/lib/llvm-19/lib/cmake/llvm ..
+else
+    mkdir -p "$BUILD_DIR"
+    cd "$BUILD_DIR"
+    # Check if CMakeCache.txt exists to avoid full rebuild and save precious time _/\_
+    if [ ! -f CMakeCache.txt ]; then
+        cmake -G Ninja -DLLVM_DIR=/usr/lib/llvm-19/lib/cmake/llvm ..
+    fi
+fi
+
 ninja
