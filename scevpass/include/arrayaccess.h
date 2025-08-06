@@ -1,17 +1,10 @@
-#ifndef ARRAYACCESS_PASS_H
-#define ARRAYACCESS_PASS_H
+#ifndef ARRAYACCESS_H
+#define ARRAYACCESS_H
 
 #include "llvm/IR/PassManager.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/IR/Instructions.h"
-namespace llvm {
 
-struct ArrayAccessPass : public PassInfoMixin<ArrayAccessPass> {
-    PreservedAnalyses run(Function &F, FunctionAnalysisManager &FAM);
-    bool ArrayAccessOffset(Instruction *I, ScalarEvolution *SE);
-
+struct ArrayAccessPass : public llvm::PassInfoMixin<::ArrayAccessPass> {
+  llvm::PreservedAnalyses run(llvm::Function &F, llvm::FunctionAnalysisManager &FAM);
 };
 
-} // namespace llvm
-
-#endif // ARRAYACCESS_PASS_H
+#endif // ARRAYACCESS_H

@@ -1,190 +1,41 @@
 
 ================================================================================
-===> Processing File: foo.opt.ll
+===> Processing File: 1.opt.ll
 ================================================================================
 
-Running ArrayAccessPass on function: tricky_disc
-Loop detected.
-  Found GEP:   %9 = getelementptr inbounds i32, ptr %0, i64 %8
-    SCEV: ((12 * (zext i32 %.0 to i64))<nuw><nsw> + (-4 * (zext i1 (trunc i32 %.0 to i1) to i64))<nuw><nsw> + %0)
-    GEP is not a loop-varying recurrence — not continuous.
+--- Analyzing Loop with header: %3 ---
+
+Analyzing stores in block: %4
+ -> Unsorted memory access detected. Rearranging instructions...
+Before rearrangement:
+  store i32 0, ptr %6, align 4
+  store i32 1, ptr %7, align 4
+  store i32 2, ptr %9, align 4
+After rearrangement:
+  store i32 1, ptr %7, align 4
+  store i32 2, ptr %9, align 4
+  store i32 0, ptr %6, align 4
 
 ================================================================================
-===> Processing File: iscont1.opt.ll
+===> Processing File: 2.opt.ll
 ================================================================================
 
-Running ArrayAccessPass on function: foo1
-Loop detected.
-  Found GEP:   %6 = getelementptr inbounds i8, ptr %.01, i64 4
-    SCEV: {(4 + %0),+,4}<nw><%3>
-    GEP varies across loop: yes
-    Step recurrence: 4
-    Raw stride (bytes): 4
-    Element size: 1 bytes
-    Logical stride (elements): 4
-    Access is strided — 4 elements per iteration.
+--- Analyzing Loop with header: %4 ---
+
+Analyzing stores in block: %6
+ -> Access pattern in this block is already sorted.
 
 ================================================================================
-===> Processing File: iscont2.opt.ll
+===> Processing File: 3.opt.ll
 ================================================================================
 
-Running ArrayAccessPass on function: foo2
-Loop detected.
-  Found GEP:   %8 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
-    SCEV: {%0,+,8}<nw><%5>
-    GEP varies across loop: yes
-    Step recurrence: 8
-    Raw stride (bytes): 8
-    Element size: 4 bytes
-    Logical stride (elements): 2
-    Access is strided — 2 elements per iteration.
-  Found GEP:   %15 = getelementptr inbounds i32, ptr %0, i64 %14
-    SCEV: {(4 + %0),+,8}<nw><%5>
-    GEP varies across loop: yes
-    Step recurrence: 8
-    Raw stride (bytes): 8
-    Element size: 4 bytes
-    Logical stride (elements): 2
-    Access is strided — 2 elements per iteration.
+--- Analyzing Loop with header: %3 ---
 
-================================================================================
-===> Processing File: iscont3.opt.ll
-================================================================================
-
-Running ArrayAccessPass on function: foo3
-Loop detected.
-  Found GEP:   %5 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
-    SCEV: {%0,+,4}<nw><%3>
-    GEP varies across loop: yes
-    Step recurrence: 4
-    Raw stride (bytes): 4
-    Element size: 4 bytes
-    Logical stride (elements): 1
-    Access is logically continuous (1 element per iteration).
-
-================================================================================
-===> Processing File: iscont4.opt.ll
-================================================================================
-
-Running ArrayAccessPass on function: foo4
-Loop detected.
-  Found GEP:   %7 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
-    SCEV: {%0,+,4}<nuw><%6>
-    GEP varies across loop: yes
-    Step recurrence: 4
-    Raw stride (bytes): 4
-    Element size: 4 bytes
-    Logical stride (elements): 1
-    Access is logically continuous (1 element per iteration).
-
-================================================================================
-===> Processing File: notcont1.opt.ll
-================================================================================
-
-Running ArrayAccessPass on function: bar1
-Loop detected.
-  Found GEP:   %7 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
-    SCEV: {%0,+,8}<nw><%4>
-    GEP varies across loop: yes
-    Step recurrence: 8
-    Raw stride (bytes): 8
-    Element size: 4 bytes
-    Logical stride (elements): 2
-    Access is strided — 2 elements per iteration.
-
-================================================================================
-===> Processing File: notcont2.opt.ll
-================================================================================
-
-Running ArrayAccessPass on function: bar2
-Loop detected.
-  Found GEP:   %8 = getelementptr inbounds i32, ptr %0, i64 %7
-    SCEV: {(-8 + (8 * (sext i32 %1 to i64))<nsw> + %0),+,-8}<nw><%4>
-    GEP varies across loop: yes
-    Step recurrence: -8
-    Raw stride (bytes): -8
-    Element size: 4 bytes
-    Logical stride (elements): 4611686018427387902
-    Access is strided — 4611686018427387902 elements per iteration.
-
-================================================================================
-===> Processing File: notcont3.opt.ll
-================================================================================
-
-Running ArrayAccessPass on function: bar2
-Loop detected.
-  Found GEP:   %8 = getelementptr inbounds i32, ptr %0, i64 %7
-    SCEV: {(-8 + (8 * (sext i32 %1 to i64))<nsw> + %0),+,-8}<nw><%4>
-    GEP varies across loop: yes
-    Step recurrence: -8
-    Raw stride (bytes): -8
-    Element size: 4 bytes
-    Logical stride (elements): 4611686018427387902
-    Access is strided — 4611686018427387902 elements per iteration.
-
-================================================================================
-===> Processing File: notcont4.opt.ll
-================================================================================
-
-Running ArrayAccessPass on function: tricky_disc
-Loop detected.
-  Found GEP:   %9 = getelementptr inbounds i32, ptr %0, i64 %8
-    SCEV: ((12 * (zext i32 %.0 to i64))<nuw><nsw> + (-4 * (zext i1 (trunc i32 %.0 to i1) to i64))<nuw><nsw> + %0)
-    GEP is not a loop-varying recurrence — not continuous.
-
-================================================================================
-===> Processing File: out.ll
-================================================================================
-
-Running ArrayAccessPass on function: tricky_disc
-Loop detected.
-  Found GEP:   %9 = getelementptr inbounds i32, ptr %0, i64 %8
-    SCEV: ((12 * (zext i32 %.0 to i64))<nuw><nsw> + (-4 * (zext i1 (trunc i32 %.0 to i1) to i64))<nuw><nsw> + %0)
-    GEP is not a loop-varying recurrence — not continuous.
-
-================================================================================
-===> Processing File: test.opt.ll
-================================================================================
-
-Running ArrayAccessPass on function: foo
-Loop detected.
-  Found GEP:   %7 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
-    SCEV: {%0,+,12}<nw><%4>
-    GEP varies across loop: yes
-    Step recurrence: 12
-    Raw stride (bytes): 12
-    Element size: 4 bytes
-    Logical stride (elements): 3
-    Access is strided — 3 elements per iteration.
-  Found GEP:   %10 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
-    SCEV: {%0,+,12}<nw><%4>
-    GEP varies across loop: yes
-    Step recurrence: 12
-    Raw stride (bytes): 12
-    Element size: 4 bytes
-    Logical stride (elements): 3
-    Access is strided — 3 elements per iteration.
-  Found GEP:   %11 = getelementptr inbounds i8, ptr %10, i64 4
-    SCEV: {(4 + %0),+,12}<nw><%4>
-    GEP varies across loop: yes
-    Step recurrence: 12
-    Raw stride (bytes): 12
-    Element size: 1 bytes
-    Logical stride (elements): 12
-    Access is strided — 12 elements per iteration.
-  Found GEP:   %14 = getelementptr inbounds i32, ptr %0, i64 %indvars.iv
-    SCEV: {%0,+,12}<nw><%4>
-    GEP varies across loop: yes
-    Step recurrence: 12
-    Raw stride (bytes): 12
-    Element size: 4 bytes
-    Logical stride (elements): 3
-    Access is strided — 3 elements per iteration.
-  Found GEP:   %15 = getelementptr inbounds i8, ptr %14, i64 8
-    SCEV: {(8 + %0),+,12}<nw><%4>
-    GEP varies across loop: yes
-    Step recurrence: 12
-    Raw stride (bytes): 12
-    Element size: 1 bytes
-    Logical stride (elements): 12
-    Access is strided — 12 elements per iteration.
+Analyzing stores in block: %4
+ -> Unsorted memory access detected. Rearranging instructions...
+Before rearrangement:
+  store i32 %8, ptr %7, align 4
+  store i32 %11, ptr %10, align 4
+After rearrangement:
+  store i32 %11, ptr %10, align 4
+  store i32 %8, ptr %7, align 4

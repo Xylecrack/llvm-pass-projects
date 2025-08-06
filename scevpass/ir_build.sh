@@ -19,16 +19,9 @@ process_file() {
 }
 
 if [ $# -eq 0 ]; then
-    echo "No file specified. Do you want to optimize all .c files in the current directory? (y/n)"
-    read -r choice
-    if [[ "$choice" =~ ^[Yy]$ ]]; then
-        for file in examples/*.c; do
-            process_file "$file"
-        done
-    else
-        echo "Usage: $0 <file.c>  or run without arguments to process all files"
-        exit 1
-    fi
+    for file in examples/*.c; do
+        process_file "$file"
+    done
 elif [ $# -eq 1 ]; then
     process_file "$1"
 else
