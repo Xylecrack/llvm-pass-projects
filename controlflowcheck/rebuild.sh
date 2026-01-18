@@ -7,14 +7,14 @@ if [[ "$1" == "clean" ]]; then
     rm -rf "$BUILD_DIR"
     mkdir "$BUILD_DIR"
     cd "$BUILD_DIR"
-    cmake -G Ninja -DLLVM_DIR=/usr/lib/llvm-19/lib/cmake/llvm ..
+    cmake -DLLVM_DIR=/home/xylecrack/LLVM/build/lib/cmake/llvm ..
 else
     mkdir -p "$BUILD_DIR"
     cd "$BUILD_DIR"
     # Check if CMakeCache.txt exists to avoid full rebuild and save precious time _/\_
     if [ ! -f CMakeCache.txt ]; then
-        cmake -G Ninja -DLLVM_DIR=/usr/lib/llvm-19/lib/cmake/llvm ..
+        cmake -DLLVM_DIR=/home/xylecrack/LLVM/build/lib/cmake/llvm ..
     fi
 fi
 
-ninja
+make

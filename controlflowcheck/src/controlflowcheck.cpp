@@ -14,39 +14,20 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/IR/GlobalVariable.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Type.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Plugins/PassPlugin.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 
 using namespace llvm;
 
 namespace {
-// Dump the predecessors and successors of all the basic blocks in an IR
-/* void infoFunction(Function &F) {
-  errs() << "[CFG INFO] Function: " << F.getName() << "\n";
-
-  for (BasicBlock &BB : F) {
-    errs() << "  [CFG] " << BB.getName() << " successors: ";
-    for (succ_iterator SI = succ_begin(&BB), SE = succ_end(&BB); SI != SE;
-         ++SI) {
-      errs() << (*SI)->getName() << " ";
-    }
-    errs() << "\n";
-    errs() << "        " << BB.getName() << " predecessors: ";
-    for (pred_iterator PI = pred_begin(&BB), PE = pred_end(&BB); PI != PE;
-         ++PI) {
-      errs() << (*PI)->getName() << " ";
-    }
-    errs() << "\n";
-  }
-  errs() << "[CFG INFO END]\n";
-} */
 
 /// Global identifiers
 // GName stores controlflow signatures at runtime.
@@ -77,16 +58,51 @@ struct ControlFlowCheckPass : PassInfoMixin<ControlFlowCheckPass> {
     if (F.isDeclaration())
       return PreservedAnalyses::all();
 
+   // split crictical edges
+    SmallVector<std::pair<Instruction *, unsigned>, 4> CriticalEdges;
+
+    for (BasicBlock &BB : F) {
+      Instruction *TI = BB.getTerminator();
+      // source must have multiple successors
+      if (TI->getNumSuccessors() > 1) {
+        for (unsigned i = 0; i < TI->getNumSuccessors(); ++i) {
+          BasicBlock *Dest = TI->getSuccessor(i);
+          // destination must have multiple predecessors
+          // getSinglePredecessor returns nullptr if there are > 1 predecessors.
+          if (Dest->getSinglePredecessor() == nullptr) {
+            CriticalEdges.push_back({TI, i});
+          }
+        }
+      }
+    }
+
+    // Apply the splits
+    // We use default CriticalEdgeSplittingOptions() which passes nullptrs.
+    // This avoids the type mismatch error.
+    for (auto &Edge : CriticalEdges) {
+      SplitCriticalEdge(Edge.first, Edge.second,
+                        CriticalEdgeSplittingOptions());
+    }
+
+    // Refresh references after CFG modification
     Module &M = *F.getParent();
     auto [GVar, Handler] = getOrInsertRuntime(M);
     LLVMContext &Ctx = M.getContext();
     Type *Int32Ty = Type::getInt32Ty(Ctx);
 
+   // snapshot the cfg preds
+    DenseMap<BasicBlock *, SmallVector<BasicBlock *, 4>> OrigPreds;
+    for (BasicBlock &BB : F) {
+      for (BasicBlock *Pred : predecessors(&BB)) {
+        OrigPreds[&BB].push_back(Pred);
+      }
+    }
+
     // Step 1: Assign unique signature to each basic block.
     DenseMap<BasicBlock *, uint32_t> blockSign;
     uint32_t sig = 0;
     for (BasicBlock &BB : F) {
-      blockSign[&BB] = sig++;
+      blockSign[&BB] = ++sig;
     }
 
     // Step 2: Create common error block
@@ -97,68 +113,67 @@ struct ControlFlowCheckPass : PassInfoMixin<ControlFlowCheckPass> {
 
     // Step 3 : Instrumentation pass over original basic blocks
     // Iterating over basic blocks which are created on runtime
-    // creats a infinite loop of checking and adding new BB
+    // creates a infinite loop of checking and adding new BB
     // hence, OriginalBBs is used to keep track of original Basic blocks
-    SmallVector<BasicBlock *, 16> OriginalBBs;
-    for (BasicBlock &BB : F) {
-      OriginalBBs.push_back(&BB);
-    }
+    SmallVector<BasicBlock *, 16> WorkList;
+    for (BasicBlock &BB : F)
+      if (&BB != ErrorBB)
+        WorkList.push_back(&BB);
 
-    for (BasicBlock *BB : OriginalBBs) {
-      SmallVector<BasicBlock *, 8> preds(pred_begin(BB), pred_end(BB));
+    for (BasicBlock *BB : WorkList) {
+      auto It = BB->getFirstNonPHIOrDbgOrLifetime();
+      if (It == BB->end())
+        continue;
 
+      IRBuilder<> Builder(BB, It);
+      Value *Gval = nullptr;
+
+      auto &Preds = OrigPreds[BB];
       // Step 3.1: Choose base predecessor
-      uint32_t d = 0;
-      BasicBlock *basePred = nullptr;
-      if (!preds.empty()) {
-        basePred = preds[0];
-        d = blockSign[basePred] ^ blockSign[BB];
-      }
+      if (Preds.empty()) {
+        uint32_t s = blockSign[BB];
+        Builder.CreateStore(ConstantInt::get(Int32Ty, s), GVar);
+        Gval = ConstantInt::get(Int32Ty, s);
+      } else {
+        BasicBlock *BasePred = Preds[0];
+        // Step 3.2: Insert D-setting in non-base preds
+        uint32_t sPred = blockSign.count(BasePred) ? blockSign[BasePred] : 0;
+        uint32_t sCurr = blockSign[BB];
+        uint32_t d = sPred ^ sCurr;
 
-      // Step 3.2: Insert D-setting in non-base preds
-      if (preds.size() > 1) {
-        uint32_t baseSign = blockSign[basePred];
-        for (BasicBlock *pred : preds) {
-          if (pred == basePred)
-            continue;
-          uint32_t D = baseSign ^ blockSign[pred];
+        if (Preds.size() > 1) {
+          for (BasicBlock *P : Preds) {
+            if (P == BasePred)
+              continue;
 
-          IRBuilder<> PredBuilder(pred->getTerminator());
-          Value *Gload = PredBuilder.CreateLoad(Int32Ty, GVar, "Gload_D");
-          Value *NewG = PredBuilder.CreateXor(
-              Gload, ConstantInt::get(Int32Ty, D), "xor_D");
-          PredBuilder.CreateStore(NewG, GVar);
+            uint32_t sP = blockSign.count(P) ? blockSign[P] : 0;
+            uint32_t D = sPred ^ sP;
+
+            Instruction *T = P->getTerminator();
+            IRBuilder<> PB(T);
+            Value *OldG = PB.CreateLoad(Int32Ty, GVar);
+            Value *AdjG = PB.CreateXor(OldG, ConstantInt::get(Int32Ty, D));
+            PB.CreateStore(AdjG, GVar);
+          }
+        }
+
+        Gval = Builder.CreateLoad(Int32Ty, GVar);
+        if (d != 0) {
+          Gval = Builder.CreateXor(Gval, ConstantInt::get(Int32Ty, d));
+          Builder.CreateStore(Gval, GVar);
         }
       }
 
-      // Step 3.3: Insert XOR d and check at BB start
-      Instruction *InsertPt = BB->getFirstNonPHIOrDbgOrLifetime();
-      if (!InsertPt) {
-        errs() << "[CFCSS] Warning: No valid insert point in BB: "
-               << BB->getName() << "\n";
-        continue;
-      }
-
-      IRBuilder<> Builder(BB, InsertPt->getIterator());
-      Value *Gload = nullptr;
-
-      if (d != 0) {
-        Gload = Builder.CreateLoad(Int32Ty, GVar, "Gload");
-        Value *NewG =
-            Builder.CreateXor(Gload, ConstantInt::get(Int32Ty, d), "xor_d");
-        Builder.CreateStore(NewG, GVar);
-        Gload = NewG;
-      } else {
-        Gload = Builder.CreateLoad(Int32Ty, GVar, "Gload");
-      }
-
       // Step 3.4: Compare signature and branch to error if mismatch
-      Value *Cmp = Builder.CreateICmpNE(
-          Gload, ConstantInt::get(Int32Ty, blockSign[BB]), "cmp_sig");
-      SplitBlockAndInsertIfThen(Cmp, Builder.GetInsertPoint(), false, nullptr,
-                                nullptr, nullptr, ErrorBB);
+      if (!Preds.empty()) {
+        Value *Check = Builder.CreateICmpNE(
+            Gval, ConstantInt::get(Int32Ty, blockSign[BB]));
+
+        SplitBlockAndInsertIfThen(Check, &*It, false, nullptr, nullptr, nullptr,
+                                  ErrorBB);
+      }
     }
-    /*  infoFunction(F); */
+
     return PreservedAnalyses::none();
   }
 };

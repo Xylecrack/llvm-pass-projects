@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-uint32_t __cfcss_G = 0;  // Global run-time signature (GSR)
+extern uint32_t __cfcss_G;  // Global run-time signature (GSR)
 
 __attribute__((noreturn))
 void __cfcss_fault(void) {
