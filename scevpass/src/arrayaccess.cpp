@@ -10,7 +10,7 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/PassManager.h"
 #include "llvm/Passes/PassBuilder.h"
-#include "llvm/Passes/PassPlugin.h"
+#include "llvm/Plugins/PassPlugin.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 
@@ -136,9 +136,7 @@ PreservedAnalyses ArrayAccessPass::run(Function &F,
           info.Instruction->print(errs());
           errs() << "\n";
         }
-
-        // Physically reorder the instructions in the basic block.
-        Instruction *InsertBefore = StoreInfos.back().Instruction->getNextNode();
+        Instruction *InsertBefore = BB->getTerminator();
         for (const auto &info : SortedStores) {
           info.Instruction->removeFromParent();
           info.Instruction->insertBefore(InsertBefore);
@@ -153,7 +151,7 @@ PreservedAnalyses ArrayAccessPass::run(Function &F,
       }
     }
   }
-  return PreservedAnalyses::all();
+  return PreservedAnalyses::none();
 }
 
 } // namespace
